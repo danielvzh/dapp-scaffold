@@ -1,103 +1,174 @@
-import Image from "next/image";
+'use client'
 
-export default function Home() {
+import { useState, useEffect } from 'react'
+import { WalletName } from '@bitcoin-wallet-adapter'
+import { Network } from '@saturnbtcio/psbt'
+import { useWallet } from '../hooks/useWallet'
+import { ArchService } from '../services/sendTransaction'
+import { createAndFundAccount } from '@/services/createAccount'
+
+export default function HomePage() {
+  const [isMounted, setIsMounted] = useState(false)
+  const { wallet, connected, status, connect, disconnect, paymentAddress } = useWallet()
+  const [error, setError] = useState<string | null>(null)
+  const [selectedNetwork, setSelectedNetwork] = useState<Network>('mainnet')
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  const handleConnect = async (name: WalletName) => {
+    setError(null)
+    try {
+      await connect(name, selectedNetwork)
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message)
+      } else {
+        setError(String(err))
+      }
+    }
+  }
+
+  const handleSendArchTransaction = async () => {
+    if (!wallet) {
+      setError('No wallet connected')
+      return
+    }
+
+    try {
+      setError(null)
+
+      try {
+        await createAndFundAccount(wallet);
+      } catch (error) {
+        console.error('Failed to create account:', error);
+      }
+
+      const txid = await new ArchService().sendTransaction(wallet)
+      console.log('✅ Arch transaction sent successfully:', txid)
+
+
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message)
+      } else {
+        setError(String(err))
+      }
+    }
+  }
+
+  if (!isMounted) {
+    return (
+      <div style={{ maxWidth: 400, margin: '0 auto', textAlign: 'center' }}>
+        <div style={{ padding: '2rem' }}>Loading...</div>
+      </div>
+    )
+  }
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div style={{ maxWidth: 400, margin: '0 auto', textAlign: 'center' }}>
+      {!connected ? (
+        <div>
+          <h1 style={{ marginBottom: '2rem' }}>Connect Wallet</h1>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label htmlFor="network-select" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+              Select Network:
+            </label>
+            <select
+              id="network-select"
+              value={selectedNetwork}
+              onChange={(e) => setSelectedNetwork(e.target.value as Network)}
+              style={{
+                padding: '0.5rem',
+                borderRadius: '4px',
+                border: '1px solid #ccc',
+                fontSize: '1rem',
+                minWidth: '150px'
+              }}
+            >
+              <option value="mainnet">Mainnet</option>
+              <option value="testnet">Testnet</option>
+              <option value="testnet4">Testnet4</option>
+            </select>
+          </div>
+
+          <button
+            onClick={() => handleConnect('unisat')}
+            disabled={status === 'loading'}
+            style={{
+              marginRight: '1rem',
+              padding: '0.75rem 1.5rem',
+              fontSize: '1rem',
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: status === 'loading' ? 'not-allowed' : 'pointer'
+            }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            {status === 'loading' ? 'Connecting...' : 'Connect Unisat'}
+          </button>
+          <button
+            onClick={() => handleConnect('xverse')}
+            disabled={status === 'loading'}
+            style={{
+              padding: '0.75rem 1.5rem',
+              fontSize: '1rem',
+              backgroundColor: '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: status === 'loading' ? 'not-allowed' : 'pointer'
+            }}
           >
-            Read our docs
-          </a>
+            {status === 'loading' ? 'Connecting...' : 'Connect Xverse'}
+          </button>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      ) : (
+        <div>
+          <h2>✅ Connected: {wallet?.walletName}</h2>
+          <p>
+            <strong>Network:</strong> {wallet?.network}
+          </p>
+          <button
+            onClick={handleSendArchTransaction}
+            style={{
+              marginTop: '1rem',
+              marginRight: '1rem',
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#6f42c1',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            Send Arch Transaction
+          </button>
+          <button
+            onClick={disconnect}
+            style={{
+              marginTop: '1rem',
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#dc3545',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            Disconnect
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <p style={{ color: '#dc3545', marginTop: '1rem' }}>
+          Error: {error}
+        </p>
+      )}
     </div>
-  );
+  )
 }
